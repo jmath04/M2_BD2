@@ -104,7 +104,8 @@ const salaries = [];
 
 
 async function retornaEmployees(){
-  await Employee.findAll().then(result => transforma_js_employees(result));
+  await Employee.findAll({})
+  .then(result => transforma_js_employees(result));
 }
 
 function transforma_js_employees(resultado){
@@ -206,14 +207,27 @@ function transforma_js_salaries(resultado){
 
 async function migraMongo(){
   await client.connect();
+  console.log("migrando dados para o banco mongo DB...");
   await db.dropCollection('employees');
   await db.dropCollection('department');
-
-
+  await db.dropCollection('dept_manager');
+  await db.dropCollection('dept_emp');
+  await db.dropCollection('title');
+  await db.dropCollection('salary');
+  
   await db.createCollection('employees');
+  await db.createCollection('department');
+  await db.createCollection('dept_manager');
+  await db.createCollection('dept_emp');
+  await db.createCollection('title');
+  await db.createCollection('salary');
 
-  db.collection('employees').insertMany(employees)
-
+  await db.collection('employees').insertMany(employees);
+  await db.collection('department').insertMany(departments);
+  await db.collection('dept_manager').insertMany(deptManagers);
+  await db.collection('dept_emp').insertMany(deptEmps);
+  await db.collection('title').insertMany(titles)
+  await db.collection('salary').insertMany(salaries)
 }
 
 
@@ -226,9 +240,6 @@ async function carregarTodosOsDados() {
   await retornaDeptEmps();
   await retornaTitles();
   await retornaSalaries();
-
-
-  
 }
 
 await carregarTodosOsDados();
