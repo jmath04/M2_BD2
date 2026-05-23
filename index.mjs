@@ -5,19 +5,7 @@ import {MongoClient} from 'mongodb';
 
 const uri = "mongodb://localhost:27017/";
 const client = new MongoClient(uri);
-
-async function main() {
-  await client.connect();
-  await listDatabases(client);
-}
-async function listDatabases(client){
-const databasesList = await client.db().admin().listDatabases();
-//.db(): Create a new Db instance sharing the current socket connections.
-//admin():Object to give access to administrtives commands on mongodb
-console.log("Databases:");
-databasesList.databases.forEach(db => console.log(  `- ${db.name}` ));
-};
-main();
+const db = client.db('database_m2')
 
 const sequelize = new Sequelize('employees', process.env.USER_DB, process.env.SENHA_DB, {host: 'localhost',dialect: 'mysql' });
 
@@ -216,9 +204,21 @@ function transforma_js_salaries(resultado){
   });
 }
 
+async function migraMongo(){
+  await client.connect();
+  await db.dropCollection('employees');
+  await db.dropCollection('department');
+
+
+  await db.createCollection('employees');
+
+  db.collection('employees').insertMany(employees)
+
+}
+
 
 async function carregarTodosOsDados() {
-  console.log("Buscando dados no banco...");
+  console.log("Transformando dados em Json");
   
   await retornaEmployees();
   await retornaDepartments();
@@ -227,15 +227,14 @@ async function carregarTodosOsDados() {
   await retornaTitles();
   await retornaSalaries();
 
-  console.log("Dados carregados com sucesso!");
-  console.log("Exemplo Employee:", employees[0]);
-  console.log("Total de Departments:", departments.length);
+
+  
 }
 
-carregarTodosOsDados();
+await carregarTodosOsDados();
 
-
-
+await migraMongo();
+client.close();
 
 
 
