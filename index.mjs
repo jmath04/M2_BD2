@@ -3,12 +3,13 @@ import fs from 'fs/promises';
 import 'dotenv/config';
 import {MongoClient} from 'mongodb';
 
+
+
 const uri = "mongodb://localhost:27017/";
 const client = new MongoClient(uri);
 const db = client.db('database_m2')
 
-const sequelize = new Sequelize('employees', process.env.USER_DB, process.env.SENHA_DB, {host: 'localhost',dialect: 'mysql' });
-
+const sequelize = new Sequelize('employees', process.env.USER_DB, process.env.SENHA_DB, {host: '127.0.0.1',dialect: 'mysql' });
 
 const Employee = sequelize.define('Employee', {
   emp_no: { type: DataTypes.INTEGER,primaryKey: true,allowNull: false},
@@ -94,7 +95,7 @@ Department.belongsToMany(Employee, {
 });
 
 
-
+/*
 const employees = [];  
 const departments = [];
 const deptManagers = [];
@@ -247,8 +248,176 @@ await carregarTodosOsDados();
 await migraMongo();
 client.close();
 
+*/
+
+async function migraMongo(){
+
+  await client.connect();
+
+  console.log("Migrando dados para MongoDB...");
+
+  const collection = db.collection('employees');
+
+  
+  await collection.deleteMany({});
+
+ 
+  const resultado = await Employee.findAll({
+
+    include: [
+
+      {
+        model: Salary
+      },
+
+      {
+        model: Title
+      },
+
+      {
+        model: Department,
+        through: {
+          attributes: ['from_date', 'to_date']
+        }
+      },
+
+      {
+        model: Department,
+        as: 'ManagedDepartments',
+        through: {
+          attributes: ['from_date', 'to_date']
+        }
+      }
+
+    ]
+
+  });
+
+  const employeesMongo = resultado.map(emp => {
+
+    const data = emp.toJSON();
+
+    return {
+
+      emp_no: data.emp_no,
+      birth_date: data.birth_date,
+      first_name: data.first_name,
+      last_name: data.last_name,
+      gender: data.gender,
+      hire_date: data.hire_date,
+
+      salaries: data.Salaries,
+
+      titles: data.Titles,
+
+      departments: data.Departments,
+
+      manager_departments: data.ManagedDepartments
+
+    };
+
+  });
 
 
+
+  await collection.insertMany(employeesMongo);
+
+  console.log("Dados migrados!");
+
+
+  await collection.createIndex({ emp_no: 1 });
+
+  await collection.createIndex({ "titles.title": 1 });
+
+  await collection.createIndex({ "departments.dept_name": 1 });
+
+  await collection.createIndex({ "manager_departments.emp_no": 1 });
+
+  console.log("Índices criados!");
+
+}
+
+await migraMongo();
+
+async function employeesPorManager(managerId){
+
+  await client.connect();
+
+  const resultado = await db.collection('employees').find({
+
+    "manager_departments.emp_no": managerId
+
+  }).toArray();
+
+  console.log(resultado);
+
+}
+
+async function employeesPorTitle(title){
+
+  await client.connect();
+
+  const resultado = await db.collection('employees').find({
+
+    "titles.title": title
+
+  }).toArray();
+
+  console.log(resultado);
+
+}
+
+async function employeesPorDepartamento(departamento){
+
+  await client.connect();
+
+  const resultado = await db.collection('employees').find({
+
+    "departments.dept_name": departamento
+
+  }).toArray();
+
+  console.log(resultado);
+
+}
+
+async function mediaSalarialPorDepartamento(){
+
+  await client.connect();
+
+  const resultado = await db.collection('employees').aggregate([
+
+    {
+      $unwind: "$departments"
+    },
+
+    {
+      $unwind: "$salaries"
+    },
+
+    {
+      $group: {
+
+        _id: "$departments.dept_name",
+
+        media_salarial: {
+          $avg: "$salaries.salary"
+        }
+
+      }
+    }
+
+  ]).toArray();
+
+  console.log(resultado);
+
+}
+
+await client.connect();
+
+await migraMongo();
+
+await client.close();
 
 
 
