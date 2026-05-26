@@ -1,8 +1,7 @@
 import { Sequelize, DataTypes } from 'sequelize';
 import 'dotenv/config';
 import { MongoClient } from 'mongodb';
-
-
+import readline from 'readline';
 
 const uri = "mongodb://localhost:27017/";
 const client = new MongoClient(uri);
@@ -179,7 +178,6 @@ async function employeesPorTitle(title){
   }).toArray();
 
   await console.log(JSON.stringify(resultado, null, 2));
-  await client.close();
 
 }
 
@@ -194,7 +192,7 @@ async function employeesPorDepartamento(departamento){
   }).toArray();
 
   await console.log(JSON.stringify(resultado, null, 2));
-  await client.close();
+
 }
 
 async function mediaSalarialPorDepartamento(){
@@ -227,22 +225,127 @@ async function mediaSalarialPorDepartamento(){
 
   await console.log(JSON.stringify(resultado, null, 2));
 
+}
+
+async function employeesPorManager(manager){
+
+  const resultado = await db.collection('employees').find({
+
+    $or: [
+
+      { "managed_departments.dept_name": manager },
+
+      { "managed_departments.dept_no": manager }
+
+    ]
+
+  }).toArray();
+
+  console.log(JSON.stringify(resultado, null, 2));
+
+}
+
+
+const rl = readline.createInterface({
+  input: process.stdin,
+  output: process.stdout
+});
+
+function perguntar(pergunta) {
+
+  return new Promise(resolve => {
+
+    rl.question(pergunta, resposta => {
+
+      resolve(resposta);
+
+    });
+
+  });
+
+}
+
+async function menu() {
+
+  await client.connect();
+
+  let opcao = "";
+
+  while(opcao !== "0") {
+
+    console.log("\n========== MENU ==========");
+    console.log("1 - Migrar dados MySQL -> MongoDB");
+    console.log("2 - Buscar employees por manager");
+    console.log("3 - Buscar employees por title");
+    console.log("4 - Buscar employees por departamento");
+    console.log("5 - Média salarial por departamento");
+    console.log("0 - Sair");
+
+    opcao = await perguntar("\nEscolha uma opção: ");
+
+    switch(opcao) {
+
+      case "1":
+
+        await migraMongo();
+
+        break;
+
+      case "2":
+
+        const manager = await perguntar("Digite nome ou id do manager: ");
+
+        await employeesPorManager(manager);
+
+        break;
+
+      case "3":
+
+        const title = await perguntar("Digite o title: ");
+
+        await employeesPorTitle(title);
+
+        break;
+
+      case "4":
+
+        const departamento = await perguntar("Digite o departamento: ");
+
+        await employeesPorDepartamento(departamento);
+
+        break;
+
+      case "5":
+
+        await mediaSalarialPorDepartamento();
+
+        break;
+
+      case "0":
+
+        console.log("Encerrando...");
+
+        break;
+
+      default:
+
+        console.log("Opção inválida!");
+
+    }
+
+  }
+
+  rl.close();
+
   await client.close();
 
-}
-
-
-async function run() {
-    await migraMongo();
-    await client.close();
-    await sequelize.close();
-    await employeesPorTitle('Sennior Staff');
-    await mediaSalarialPorDepartamento();
-    await employeesPorDepartamento('Customer Service');
+  await sequelize.close();
 
 }
 
-run();
+menu();
+
+
 
 
 
