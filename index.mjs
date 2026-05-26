@@ -150,7 +150,16 @@ async function migraMongo() {
     });
 
     // Insere o lote no MongoDB
-    await mongoEmployees.insertMany(documentosFormatados);
+    try {
+      await db.collection('employees').insertMany(documentosFormatados, { ordered: false });
+    } catch (erro) {
+    // O erro de código 11000 é o de duplicata (Duplicate Key)
+    if (erro.code === 11000) {
+      console.log("Aviso: Alguns documentos foram ignorados porque já existiam.");
+    } else {
+      console.error("Outro erro ocorreu:", erro);
+    }
+}
     
     offset += BATCH_SIZE;
     console.log(`Migrados: ${offset} registros...`);
@@ -230,7 +239,7 @@ async function mediaSalarialPorDepartamento(){
 async function employeesPorManager(manager){
 
   const resultado = await db.collection('employees').find({
-
+    
     $or: [
 
       { "managed_departments.dept_name": manager },
