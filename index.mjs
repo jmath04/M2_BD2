@@ -157,13 +157,13 @@ async function migraMongo() {
     console.log(`Migrados: ${offset} registros...`);
   }
 
-  await mongoEmployees.createIndex({ emp_no: 1 });
+  await mongoEmployees.createIndex({ "emp_no": 1 });
   
   await mongoEmployees.createIndex({ "titles.title": 1 });
 
   await mongoEmployees.createIndex({ "departments.dept_name": 1 });
 
-  await mongoEmployees.createIndex({ "manager_departments.emp_no": 1 });
+  await mongoEmployees.createIndex({ "managed_departments.dept_no": 1 });
 
   console.log("Migração concluída com sucesso! Todos os dados estão em uma única collection.");
 }
@@ -178,7 +178,8 @@ async function employeesPorTitle(title){
 
   }).toArray();
 
-  console.log(resultado);
+  await console.log(JSON.stringify(resultado, null, 2));
+  await client.close();
 
 }
 
@@ -192,8 +193,8 @@ async function employeesPorDepartamento(departamento){
 
   }).toArray();
 
-  console.log(resultado);
-
+  await console.log(JSON.stringify(resultado, null, 2));
+  await client.close();
 }
 
 async function mediaSalarialPorDepartamento(){
@@ -224,7 +225,9 @@ async function mediaSalarialPorDepartamento(){
 
   ]).toArray();
 
-  console.log(resultado);
+  await console.log(JSON.stringify(resultado, null, 2));
+
+  await client.close();
 
 }
 
@@ -233,6 +236,10 @@ async function run() {
     await migraMongo();
     await client.close();
     await sequelize.close();
+    await employeesPorTitle('Sennior Staff');
+    await mediaSalarialPorDepartamento();
+    await employeesPorDepartamento('Customer Service');
+
 }
 
 run();
