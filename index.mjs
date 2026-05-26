@@ -2,6 +2,8 @@ import { Sequelize, DataTypes } from 'sequelize';
 import 'dotenv/config';
 import { MongoClient } from 'mongodb';
 
+
+
 const uri = "mongodb://localhost:27017/";
 const client = new MongoClient(uri);
 const db = client.db('database_m2');
@@ -155,8 +157,77 @@ async function migraMongo() {
     console.log(`Migrados: ${offset} registros...`);
   }
 
+  await mongoEmployees.createIndex({ emp_no: 1 });
+  
+  await mongoEmployees.createIndex({ "titles.title": 1 });
+
+  await mongoEmployees.createIndex({ "departments.dept_name": 1 });
+
+  await mongoEmployees.createIndex({ "manager_departments.emp_no": 1 });
+
   console.log("Migração concluída com sucesso! Todos os dados estão em uma única collection.");
 }
+
+async function employeesPorTitle(title){
+
+  await client.connect();
+
+  const resultado = await db.collection('employees').find({
+
+    "titles.title": title
+
+  }).toArray();
+
+  console.log(resultado);
+
+}
+
+async function employeesPorDepartamento(departamento){
+
+  await client.connect();
+
+  const resultado = await db.collection('employees').find({
+
+    "departments.dept_name": departamento
+
+  }).toArray();
+
+  console.log(resultado);
+
+}
+
+async function mediaSalarialPorDepartamento(){
+
+  await client.connect();
+
+  const resultado = await db.collection('employees').aggregate([
+
+    {
+      $unwind: "$departments"
+    },
+
+    {
+      $unwind: "$salaries"
+    },
+
+    {
+      $group: {
+
+        _id: "$departments.dept_name",
+
+        media_salarial: {
+          $avg: "$salaries.salary"
+        }
+
+      }
+    }
+
+  ]).toArray();
+
+  console.log(resultado);
+
+}
+
 
 async function run() {
     await migraMongo();
@@ -165,3 +236,8 @@ async function run() {
 }
 
 run();
+
+
+
+
+

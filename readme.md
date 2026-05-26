@@ -1,1 +1,2 @@
-a
+criar o .env
+
