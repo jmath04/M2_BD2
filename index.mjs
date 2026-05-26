@@ -1,356 +1,171 @@
-import { Sequelize, Op, DataTypes, JSONB } from 'sequelize';
-import fs from 'fs/promises';
+import { Sequelize, DataTypes } from 'sequelize';
 import 'dotenv/config';
-import {MongoClient} from 'mongodb';
+import { MongoClient } from 'mongodb';
 
 
 
 const uri = "mongodb://localhost:27017/";
 const client = new MongoClient(uri);
-const db = client.db('database_m2')
+const db = client.db('database_m2');
 
-const sequelize = new Sequelize('employees', process.env.USER_DB, process.env.SENHA_DB, {host: '127.0.0.1',dialect: 'mysql' });
+const sequelize = new Sequelize('employees', process.env.USER_DB, process.env.SENHA_DB, { 
+  host: 'localhost', 
+  dialect: 'mysql',
+  logging: false // Desativado para não poluir o terminal durante o loop
+});
 
 const Employee = sequelize.define('Employee', {
-  emp_no: { type: DataTypes.INTEGER,primaryKey: true,allowNull: false},
-  birth_date: {type: DataTypes.DATEONLY,allowNull: false},
-  first_name: {type: DataTypes.STRING(14),allowNull: false},
-  last_name: {type: DataTypes.STRING(16),allowNull: false},
-  gender: {type: DataTypes.ENUM('M', 'F'),allowNull: false},
-  hire_date: {type: DataTypes.DATEONLY,allowNull: false}
-}, { tableName: 'employees',timestamps: false});
-
+  emp_no: { type: DataTypes.INTEGER, primaryKey: true, allowNull: false },
+  birth_date: { type: DataTypes.DATEONLY, allowNull: false },
+  first_name: { type: DataTypes.STRING(14), allowNull: false },
+  last_name: { type: DataTypes.STRING(16), allowNull: false },
+  gender: { type: DataTypes.ENUM('M', 'F'), allowNull: false },
+  hire_date: { type: DataTypes.DATEONLY, allowNull: false }
+}, { tableName: 'employees', timestamps: false });
 
 const Department = sequelize.define('Department', {
-  dept_no: {type: DataTypes.CHAR(4),primaryKey: true,allowNull: false},
-  dept_name: {type: DataTypes.STRING(40),allowNull: false,unique: true}
-}, {  tableName: 'departments',timestamps: false});
+  dept_no: { type: DataTypes.CHAR(4), primaryKey: true, allowNull: false },
+  dept_name: { type: DataTypes.STRING(40), allowNull: false, unique: true }
+}, { tableName: 'departments', timestamps: false });
 
 const DeptManager = sequelize.define('DeptManager', {
-  emp_no: { type: DataTypes.INTEGER,primaryKey: true,allowNull: false},
-  dept_no: {type: DataTypes.CHAR(4),primaryKey: true,allowNull: false},
-  from_date: {type: DataTypes.DATEONLY,allowNull: false},
-  to_date: {type: DataTypes.DATEONLY,allowNull: false}
-}, {tableName: 'dept_manager',timestamps: false});
-
+  emp_no: { type: DataTypes.INTEGER, primaryKey: true, allowNull: false },
+  dept_no: { type: DataTypes.CHAR(4), primaryKey: true, allowNull: false },
+  from_date: { type: DataTypes.DATEONLY, allowNull: false },
+  to_date: { type: DataTypes.DATEONLY, allowNull: false }
+}, { tableName: 'dept_manager', timestamps: false });
 
 const DeptEmp = sequelize.define('DeptEmp', {
-  emp_no: {type: DataTypes.INTEGER,primaryKey: true,allowNull: false},
-  dept_no: {type: DataTypes.CHAR(4),primaryKey: true,allowNull: false},
-  from_date: {type: DataTypes.DATEONLY,allowNull: false},
-  to_date: {type: DataTypes.DATEONLY,allowNull: false}
-}, {tableName: 'dept_emp',timestamps: false});
-
+  emp_no: { type: DataTypes.INTEGER, primaryKey: true, allowNull: false },
+  dept_no: { type: DataTypes.CHAR(4), primaryKey: true, allowNull: false },
+  from_date: { type: DataTypes.DATEONLY, allowNull: false },
+  to_date: { type: DataTypes.DATEONLY, allowNull: false }
+}, { tableName: 'dept_emp', timestamps: false });
 
 const Title = sequelize.define('Title', {
-  emp_no: {type: DataTypes.INTEGER,primaryKey: true,allowNull: false},
-  title: {type: DataTypes.STRING(50),primaryKey: true,allowNull: false},
-  from_date: {type: DataTypes.DATEONLY,primaryKey: true,allowNull: false},
-  to_date: {type: DataTypes.DATEONLY,allowNull: true}
-}, {tableName: 'titles',timestamps: false});
-
+  emp_no: { type: DataTypes.INTEGER, primaryKey: true, allowNull: false },
+  title: { type: DataTypes.STRING(50), primaryKey: true, allowNull: false },
+  from_date: { type: DataTypes.DATEONLY, primaryKey: true, allowNull: false },
+  to_date: { type: DataTypes.DATEONLY, allowNull: true }
+}, { tableName: 'titles', timestamps: false });
 
 const Salary = sequelize.define('Salary', {
-  emp_no: {type: DataTypes.INTEGER,primaryKey: true,allowNull: false},
-  salary: {type: DataTypes.INTEGER,allowNull: false},
-  from_date: {type: DataTypes.DATEONLY,primaryKey: true,allowNull: false},
-  to_date: {type: DataTypes.DATEONLY,allowNull: false}
-}, {tableName: 'salaries',timestamps: false});
+  emp_no: { type: DataTypes.INTEGER, primaryKey: true, allowNull: false },
+  salary: { type: DataTypes.INTEGER, allowNull: false },
+  from_date: { type: DataTypes.DATEONLY, primaryKey: true, allowNull: false },
+  to_date: { type: DataTypes.DATEONLY, allowNull: false }
+}, { tableName: 'salaries', timestamps: false });
 
 
-Employee.hasMany(Title, { foreignKey: 'emp_no', onDelete: 'CASCADE' });
+Employee.hasMany(Title, { foreignKey: 'emp_no', as: 'titles' });
 Title.belongsTo(Employee, { foreignKey: 'emp_no' });
 
-
-Employee.hasMany(Salary, { foreignKey: 'emp_no', onDelete: 'CASCADE' });
+Employee.hasMany(Salary, { foreignKey: 'emp_no', as: 'salaries' });
 Salary.belongsTo(Employee, { foreignKey: 'emp_no' });
 
+// Adicionei o alias as: 'departments' para facilitar a separação
 Employee.belongsToMany(Department, { 
   through: DeptEmp, 
+  as: 'departments', 
   foreignKey: 'emp_no', 
-  otherKey: 'dept_no',
-  onDelete: 'CASCADE' 
+  otherKey: 'dept_no'
 });
-Department.belongsToMany(Employee, { 
-  through: DeptEmp, 
-  foreignKey: 'dept_no', 
-  otherKey: 'emp_no',
-  onDelete: 'CASCADE' 
-});
-
 
 Employee.belongsToMany(Department, { 
   through: DeptManager, 
-  as: 'ManagedDepartments', // Alias para diferenciar do DeptEmp
+  as: 'managed_departments', 
   foreignKey: 'emp_no', 
-  otherKey: 'dept_no',
-  onDelete: 'CASCADE' 
-});
-Department.belongsToMany(Employee, { 
-  through: DeptManager, 
-  as: 'Managers', // Alias para diferenciar do DeptEmp
-  foreignKey: 'dept_no', 
-  otherKey: 'emp_no',
-  onDelete: 'CASCADE' 
+  otherKey: 'dept_no'
 });
 
 
-/*
-const employees = [];  
-const departments = [];
-const deptManagers = [];
-const deptEmps = [];
-const titles = [];
-const salaries = [];
-
-
-async function retornaEmployees(){
-  await Employee.findAll({})
-  .then(result => transforma_js_employees(result));
-}
-
-function transforma_js_employees(resultado){
-  resultado.forEach((item) => {
-    const data = item.dataValues;
-    employees.push({
-      emp_no: data.emp_no,
-      birth_date: data.birth_date,
-      first_name: data.first_name,
-      last_name: data.last_name,
-      gender: data.gender,
-      hire_date: data.hire_date
-    });
-  });
-}
-
-
-async function retornaDepartments(){
-  await Department.findAll().then(result => transforma_js_departments(result));
-}
-
-function transforma_js_departments(resultado){
-  resultado.forEach((item) => {
-    const data = item.dataValues;
-    departments.push({
-      dept_no: data.dept_no,
-      dept_name: data.dept_name
-    });
-  });
-}
-
-
-async function retornaDeptManagers(){
-  await DeptManager.findAll().then(result => transforma_js_deptManagers(result));
-}
-
-function transforma_js_deptManagers(resultado){
-  resultado.forEach((item) => {
-    const data = item.dataValues;
-    deptManagers.push({
-      emp_no: data.emp_no,
-      dept_no: data.dept_no,
-      from_date: data.from_date,
-      to_date: data.to_date
-    });
-  });
-}
-
-
-async function retornaDeptEmps(){
-  await DeptManager.findAll().then(result => transforma_js_deptEmps(result));
-}
-
-function transforma_js_deptEmps(resultado){
-  resultado.forEach((item) => {
-    const data = item.dataValues;
-    deptEmps.push({
-      emp_no: data.emp_no,
-      dept_no: data.dept_no,
-      from_date: data.from_date,
-      to_date: data.to_date
-    });
-  });
-}
-
-
-async function retornaTitles(){
-  await Title.findAll().then(result => transforma_js_titles(result));
-}
-
-function transforma_js_titles(resultado){
-  resultado.forEach((item) => {
-    const data = item.dataValues;
-    titles.push({
-      emp_no: data.emp_no,
-      title: data.title,
-      from_date: data.from_date,
-      to_date: data.to_date
-    });
-  });
-}
-
-
-async function retornaSalaries(){
-  await Salary.findAll().then(result => transforma_js_salaries(result));
-}
-
-function transforma_js_salaries(resultado){
-  resultado.forEach((item) => {
-    const data = item.dataValues;
-    salaries.push({
-      emp_no: data.emp_no,
-      salary: data.salary,
-      from_date: data.from_date,
-      to_date: data.to_date
-    });
-  });
-}
-
-async function migraMongo(){
+async function migraMongo() {
   await client.connect();
-  console.log("migrando dados para o banco mongo DB...");
+  console.log("Conectado ao MongoDB...");
+
   await db.dropCollection('employees');
-  await db.dropCollection('department');
-  await db.dropCollection('dept_manager');
-  await db.dropCollection('dept_emp');
-  await db.dropCollection('title');
-  await db.dropCollection('salary');
-  
-  await db.createCollection('employees');
-  await db.createCollection('department');
-  await db.createCollection('dept_manager');
-  await db.createCollection('dept_emp');
-  await db.createCollection('title');
-  await db.createCollection('salary');
 
-  await db.collection('employees').insertMany(employees);
-  await db.collection('department').insertMany(departments);
-  await db.collection('dept_manager').insertMany(deptManagers);
-  await db.collection('dept_emp').insertMany(deptEmps);
-  await db.collection('title').insertMany(titles)
-  await db.collection('salary').insertMany(salaries)
-}
+  const mongoEmployees = db.collection('employees');
 
+  const BATCH_SIZE = 5000; // batch size pq aparentemente tem um limite do que o node consegue processar, desse jeito ele vai fazendo em lotes;
+  let offset = 0; // diz de que indice tem que começar a pesquisa 
+  let hasMore = true;
 
-async function carregarTodosOsDados() {
-  console.log("Transformando dados em Json");
-  
-  await retornaEmployees();
-  await retornaDepartments();
-  await retornaDeptManagers();
-  await retornaDeptEmps();
-  await retornaTitles();
-  await retornaSalaries();
-}
+  console.log("Iniciando migração dos dados em lotes...");
 
-await carregarTodosOsDados();
-
-await migraMongo();
-client.close();
-
-*/
-
-async function migraMongo(){
-
-  await client.connect();
-
-  console.log("Migrando dados para MongoDB...");
-
-  const collection = db.collection('employees');
-
-  
-  await collection.deleteMany({});
-
- 
-  const resultado = await Employee.findAll({
-
-    include: [
-
-      {
-        model: Salary
-      },
-
-      {
-        model: Title
-      },
-
-      {
-        model: Department,
-        through: {
-          attributes: ['from_date', 'to_date']
+  while (hasMore) {
+    const employeesData = await Employee.findAll({
+      limit: BATCH_SIZE,
+      offset: offset,
+      include: [
+        { model: Title, as: 'titles', attributes: ['title', 'from_date', 'to_date'] },
+        { model: Salary, as: 'salaries', attributes: ['salary', 'from_date', 'to_date'] },
+        { 
+          model: Department, 
+          as: 'departments', 
+          attributes: ['dept_no', 'dept_name'],
+          through: { attributes: ['from_date', 'to_date'] } 
+        },
+        { 
+          model: Department, 
+          as: 'managed_departments', 
+          attributes: ['dept_no', 'dept_name'],
+          through: { attributes: ['from_date', 'to_date'] }
         }
-      },
+      ],
+      order: [['emp_no', 'ASC']] // Garante uma ordem segura para o offset
+    });
 
-      {
-        model: Department,
-        as: 'ManagedDepartments',
-        through: {
-          attributes: ['from_date', 'to_date']
-        }
-      }
+    if (employeesData.length === 0) {
+      hasMore = false;
+      break;
+    }
+    const documentosFormatados = employeesData.map(emp => {
+      const data = emp.toJSON(); // isso existe bem mais facil do que a gente fez antes
 
-    ]
+      return {
+        emp_no: data.emp_no,
+        birth_date: data.birth_date,
+        first_name: data.first_name,
+        last_name: data.last_name,
+        gender: data.gender,
+        hire_date: data.hire_date,
+        
+        titles: data.titles,
+        salaries: data.salaries,
+        
+        departments: data.departments.map(dept => ({
+          dept_no: dept.dept_no,
+          dept_name: dept.dept_name,
+          from_date: dept.DeptEmp.from_date,
+          to_date: dept.DeptEmp.to_date
+        })),
 
-  });
+        managed_departments: data.managed_departments.map(dept => ({
+          dept_no: dept.dept_no,
+          dept_name: dept.dept_name,
+          from_date: dept.DeptManager.from_date,
+          to_date: dept.DeptManager.to_date
+        }))
+      };
+    });
 
-  const employeesMongo = resultado.map(emp => {
+    // Insere o lote no MongoDB
+    await mongoEmployees.insertMany(documentosFormatados);
+    
+    offset += BATCH_SIZE;
+    console.log(`Migrados: ${offset} registros...`);
+  }
 
-    const data = emp.toJSON();
+  await mongoEmployees.createIndex({ emp_no: 1 });
+  
+  await mongoEmployees.createIndex({ "titles.title": 1 });
 
-    return {
+  await mongoEmployees.createIndex({ "departments.dept_name": 1 });
 
-      emp_no: data.emp_no,
-      birth_date: data.birth_date,
-      first_name: data.first_name,
-      last_name: data.last_name,
-      gender: data.gender,
-      hire_date: data.hire_date,
+  await mongoEmployees.createIndex({ "manager_departments.emp_no": 1 });
 
-      salaries: data.Salaries,
-
-      titles: data.Titles,
-
-      departments: data.Departments,
-
-      manager_departments: data.ManagedDepartments
-
-    };
-
-  });
-
-
-
-  await collection.insertMany(employeesMongo);
-
-  console.log("Dados migrados!");
-
-
-  await collection.createIndex({ emp_no: 1 });
-
-  await collection.createIndex({ "titles.title": 1 });
-
-  await collection.createIndex({ "departments.dept_name": 1 });
-
-  await collection.createIndex({ "manager_departments.emp_no": 1 });
-
-  console.log("Índices criados!");
-
-}
-
-await migraMongo();
-
-async function employeesPorManager(managerId){
-
-  await client.connect();
-
-  const resultado = await db.collection('employees').find({
-
-    "manager_departments.emp_no": managerId
-
-  }).toArray();
-
-  console.log(resultado);
-
+  console.log("Migração concluída com sucesso! Todos os dados estão em uma única collection.");
 }
 
 async function employeesPorTitle(title){
@@ -413,11 +228,16 @@ async function mediaSalarialPorDepartamento(){
 
 }
 
-await client.connect();
 
-await migraMongo();
+async function run() {
+    await migraMongo();
+    await client.close();
+    await sequelize.close();
+}
 
-await client.close();
+run();
+
+
 
 
 
