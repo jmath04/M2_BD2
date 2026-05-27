@@ -236,22 +236,42 @@ async function mediaSalarialPorDepartamento(){
 
 }
 
-async function employeesPorManager(manager){
+async function employeesPorManager(manager) {
+  await client.connect();
+  const collection = db.collection('employees');
 
-  const resultado = await db.collection('employees').find({
-    
-    $or: [
+  let queryManager = {};
+  // Verifica se a entrada é um número (ID) ou String (Nome)
+  if (!isNaN(manager)) {
+    queryManager = { "emp_no": parseInt(manager), "managed_departments": { $not: { $size: 0 } } };
+  } else {
+    queryManager = { 
+      "managed_departments": { $not: { $size: 0 } },
+      $or: [
+        { "first_name": { $regex: manager, $options: 'i' } },
+        { "last_name": { $regex: manager, $options: 'i' } }
+      ]
+    };
+  }
 
-      { "managed_departments.dept_name": manager },
+  // 1. Encontra o gerente para descobrir qual departamento ele gerencia
+  const gerente = await collection.findOne(queryManager);
 
-      { "managed_departments.dept_no": manager }
+  if (!gerente || gerente.managed_departments.length === 0) {
+    console.log("Gerente não encontrado ou não gerencia nenhum departamento.");
+    return;
+  }
 
-    ]
+  // Pega o código do departamento que ele gerencia atualmente (ou histórico)
+  const deptNo = gerente.managed_departments[0].dept_no;
+  console.log(`\nManager Encontrado: ${gerente.first_name} ${gerente.last_name} (Depto: ${deptNo})`);
 
-  }).toArray();
+  // 2. Busca todos os funcionários vinculados a esse departamento
+  const resultado = await collection.find({
+    "departments.dept_no": deptNo
+  }).limit(10).toArray(); // Limitado a 10 para não travar o terminal com dados excessivos
 
   console.log(JSON.stringify(resultado, null, 2));
-
 }
 
 
